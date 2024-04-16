@@ -3,7 +3,7 @@ import base64
 import zlib
 import urllib
 
-txt = open('/home/student/PycharmProjects/MagProject/project3/ProjectOnTeam/nlp/question_answering/5000.tab', 'r')
+txt = open('./5000.tab', 'r')
 while True:
     line = txt.readline()
     txtId = line.split("\t")[0]
