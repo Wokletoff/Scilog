@@ -1,0 +1,28 @@
+[
+    {
+    "title": "The Pragmatic Programmer: Your Journey to Mastery",
+    "authors": ["andrew hunt", "david thomas"],
+    "summary": "A guide to pragmatic programming for software engineers and developers",
+    "publish_date": "2019-10-29",
+    "num_reviews": 30,
+    "publisher": "addison-wesley"
+    },
+    {
+      "title": "Python Crash Course",
+      "authors": ["eric matthes"],
+      "summary": "A fast-paced, no-nonsense guide to programming in Python",
+      "publish_date": "2019-05-03",
+      "num_reviews": 42,
+      "publisher": "no starch press"
+    },
+    {
+      "title": "Artificial Intelligence: A Modern Approach",
+      "authors": ["stuart russell", "peter norvig"],
+      "summary": "Comprehensive introduction to the theory and practice of artificial intelligence",
+      "publish_date": "2020-04-06",
+      "num_reviews": 39,
+      "publisher": "pearson"
+    }
+
+
+]
