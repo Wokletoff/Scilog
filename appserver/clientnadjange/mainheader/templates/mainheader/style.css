@@ -1,0 +1,24 @@
+.search_block form {
+  width: 300px;
+  height: 50px;
+  display: flex;
+  margin: 0 auto;
+}
+input.search {
+  width: calc(100% - 54px);
+  height: auto;
+  background-color: #c1c1c1;
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+  border: 0;
+  padding-left: 15px;
+}
+input.submit {
+  background: url("https://img.icons8.com/ffffff/search") center center/50% auto
+    no-repeat #4b9e40;
+  border: 0;
+  width: 54px;
+  height: auto;
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
