@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <title>Поиск</title>
+</head>
+<body>
+    <div class="search_block">
+        <form method="GET" action="{% url 'search' %}">
+            <input type="text" name="text" class="search" placeholder="Поиск" value="{{ query }}">
+            <input type="submit" name="submit" class="submit" value="Поиск">
+        </form>
+    </div>
+
+    <div class="results">
+        {% if results %}
+            <h2>Результаты поиска:</h2>
+            <ul>
+                {% for result in results %}
+                    <li>{{ result }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>Нет результатов для "{{ query }}".</p>
+        {% endif %}
+    </div>
+</body>
+</html>
