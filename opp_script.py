@@ -72,32 +72,29 @@ class Index:
             return None
 
     def createcollection(self):
+        chunks_data = []
+        try:
+            txt = open('5000.tab', 'r')
+            for i in range(5):
+                line = txt.readline()
+                txtId = line.split("\t")[0]
+                src = line.split("\t")[1].replace("\n","")
+                if len(src) < 1000:
+                    continue
+                text2 = base64.b64decode(src)
+                decompressed_data=zlib.decompress(text2, 16+zlib.MAX_WBITS)
+                
+            deco_date = decompressed_data.decode()
         
-        txt = open('5000.tab', 'r')
-        for i in range(5):
-            line = txt.readline()
-            txtId = line.split("\t")[0]
-            src = line.split("\t")[1].replace("\n","")
-            if len(src) < 1000:
-                continue
-            text2 = base64.b64decode(src)
-            decompressed_data=zlib.decompress(text2, 16+zlib.MAX_WBITS)
-            p =(
-                pipe.input('id', 'text', 'question' )
-                .map('question', 'vec', ops.text_embedding.dpr(model_name='facebook/dpr-ctx_encoder-single-nq-base'))
-                .map('text','text',lambda x: x)
-                .map('vec', 'vec', lambda x: x / np.linalg.norm(x, axis=0))
-                .map(('id', 'vec', 'text'), 'insert_status', ops.ann_insert.milvus_client(uri=self.uri, token=self.token, collection_name='testuser2'))
-                .output()
-                )
-            
-        deco_date = decompressed_data.decode()
-    
-        chunks = [deco_date[i:(i + self.chunk_size)] for i in range(0, len(deco_date), self.chunk_size)]
-        return (chunks, txtId) 
+            chunks = [deco_date[i:(i + self.chunk_size)] for i in range(0, len(deco_date), self.chunk_size)]
+            chunks_data.append((chunks, txtId))
+            return chunks_data
+        except Exception as e:
+            print(f"Error processing file: {e}")
+            return []
     
     
-    def collection(self,chunks, txtId):
+    def insert_chuncs(self,chunks, txtId):
         p = (
         pipe.input('id', 'text' ,'question','answer')
             .map('question', 'vec', ops.text_embedding.dpr(model_name='facebook/dpr-ctx_encoder-single-nq-base'))
@@ -106,9 +103,11 @@ class Index:
             .map(('id', 'vec', 'text'), 'insert_status', ops.ann_insert.milvus_client(uri=self.uri, token=self.token, collection_name='testuser2'))
             .output()
         )
+        results=[]
         for id, chunk in enumerate(chunks[:5]):
             res = DataCollection(p(f"{txtId}:{id}",chunk,chunk, txtId)).show()  
-        return res
+            results.append(res)
+        return results
             
     def answer(self,question):
        self.collection.load()
@@ -136,6 +135,12 @@ class Index:
                 collection = index.create_milvus_collection('testuser2', 768)
                 if not collection:
                     raise ValueError("Failed to create collection")
+                
+                chunks_data = index.process_file_chunks('5000.tab')
+                if not chunks_data:
+                    raise ValueError("No valid data found in file")
+            
+                index.insert_chunks(chunks_data)
                 
                 ans =index.answer(str(input("Введите часть статьи: ")))
                 ans1 = DataCollection(ans)
