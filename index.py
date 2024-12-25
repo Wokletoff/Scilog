@@ -1,3 +1,4 @@
+# Заготовка для сервера приложения
 from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection, utility, MilvusClient
 from towhee import pipe, ops
 from base64 import b64decode
@@ -9,8 +10,48 @@ import base64
 import zlib
 import urllib
 import requests
+from flask import Flask, request, jsonify, render_template_string
 
+app = Flask(__name__)
 
+# HTML template for the web app
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Scilog citations application</title>
+</head>
+<body>
+    <h1>Scilog search article</h1>
+    <form id="searchForm" onsubmit="sendQuery(); return false;">
+        <input type="text" id="query" name="query" placeholder="Enter your search..." oninput="toggleButton()">
+        <button type="button" id="searchButton" onclick="sendQuery()" disabled>Search</button>
+    </form>
+    <div id="result" style="margin-top:20px;"></div>
+    <script>
+        function toggleButton() {
+            const query = document.getElementById('query').value;
+            const button = document.getElementById('searchButton');
+            button.disabled = query.length < 3;
+        }
+
+        async function sendQuery() {
+            const query = document.getElementById('query').value;
+            if (query.length < 3) return;
+            const response = await fetch('/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: query })
+            });
+            const data = await response.json();
+            document.getElementById('result').innerText = data.message;
+        }
+    </script>
+</body>
+</html>
+"""
 class Index:
     def __init__(self,uri,token):
         self.chunk_size = 78
@@ -130,34 +171,49 @@ class Index:
        ans = ans_pipe(question)
        ans = DataCollection(ans)
        ans.show()
-    
-    def run():
-        config = configparser.ConfigParser()
-        config.read('settings.ini')
-        uri = config.get("settings", "uri")
-        token = config.get("settings", "token")
+       return ",".join(ans[0]["answer"])
+
         
-        index = Index(uri, token)
+            
+               
+                
+                
+                
+            
+        
 
-        if index.connect():
-            
-                collection = index.create_milvus_collection('testuser2', 768)
-                if not collection:
-                    raise ValueError("Failed to create collection")
-                
-                chunks_data = index.createcollection()
-                if not chunks_data:
-                    raise ValueError("No valid data found in file")
-            
-                index.insert_chuncs(chunks_data)
+# Route to serve the HTML page
+@app.route("/")
+def index():
+    return render_template_string(HTML_TEMPLATE)
 
-                index.answer(qu2)
+
+# API route to handle search requests
+@app.route("/search", methods=["POST"])
+def search():
+    data = request.get_json()
+    query = data.get("query", "")
+
+    config = configparser.ConfigParser()
+    config.read('settings.ini')
+    uri = config.get("settings", "uri")
+    token = config.get("settings", "token")
+        
+    index = Index(uri, token)
+    if index.connect():
+        collection = index.create_milvus_collection('testuser2', 768)
+        if not collection:
+            raise ValueError("Failed to create collection")
+                    
+        chunks_data = index.createcollection()
+        if not chunks_data:
+            raise ValueError("No valid data found in file")
                 
-                
-                
-            
-            
-            
+        index.insert_chuncs(chunks_data)
+        response_message = index.answer(query)
+
+    return jsonify({"message": response_message})
+
 
 if __name__ == "__main__":
-    Index.run()
+    app.run(debug=True)
