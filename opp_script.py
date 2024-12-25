@@ -94,7 +94,7 @@ class Index:
             return []
     
     
-    def insert_chuncs(self,chunks, txtId):
+    def insert_chuncs(self, chunks_data):
         p = (
         pipe.input('id', 'text' ,'question','answer')
             .map('question', 'vec', ops.text_embedding.dpr(model_name='facebook/dpr-ctx_encoder-single-nq-base'))
@@ -104,9 +104,11 @@ class Index:
             .output()
         )
         results=[]
-        for id, chunk in enumerate(chunks[:5]):
-            res = DataCollection(p(f"{txtId}:{id}",chunk,chunk, txtId)).show()  
-            results.append(res)
+        for chunks, txt_id in chunks_data:
+            for idx, chunk in enumerate(chunks[:5]):
+                chunk_id = f"{txt_id}:{idx}"
+                res = DataCollection(p(chunk_id, chunk, chunk)).show()
+                results.append(res)
         return results
             
     def answer(self,question):
@@ -136,11 +138,11 @@ class Index:
                 if not collection:
                     raise ValueError("Failed to create collection")
                 
-                chunks_data = index.process_file_chunks('5000.tab')
+                chunks_data = index.createcollection()
                 if not chunks_data:
                     raise ValueError("No valid data found in file")
             
-                index.insert_chunks(chunks_data)
+                index.insert_chuncs(chunks_data)
                 
                 ans =index.answer(str(input("Введите часть статьи: ")))
                 ans1 = DataCollection(ans)
