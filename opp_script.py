@@ -18,6 +18,8 @@ class Index:
         self.collection = None
         self.uri= uri 
         self.token = token 
+        self.sheme = None
+        self.fealds = []
         
     def connect(self):  
             try:
@@ -48,12 +50,12 @@ class Index:
                 self.collection = Collection(collection_name)
                 return self.collection
 
-            fields = [
+            self.fields = [
             FieldSchema(name='id', dtype=DataType.VARCHAR, descrition='ids', max_length=500, is_primary=True, auto_id=False),
             FieldSchema(name='embedding', dtype=DataType.FLOAT_VECTOR, descrition='embedding vectors', dim=dim),
             FieldSchema(name='text', dtype=DataType.VARCHAR,max_length=1000)
             ]
-            schema = CollectionSchema(fields=fields, description='reverse image search')
+            self.schema = CollectionSchema(fields=fields, description='reverse image search')
             self.collection = Collection(name=collection_name, schema=schema)
 
             # create IVF_FLAT index for collection.
@@ -95,6 +97,7 @@ class Index:
     
     
     def insert_chuncs(self, chunks_data):
+        
         p = (
         pipe.input('id', 'text' ,'question','answer')
             .map('question', 'vec', ops.text_embedding.dpr(model_name='facebook/dpr-ctx_encoder-single-nq-base'))
@@ -103,16 +106,18 @@ class Index:
             .map(('id', 'vec', 'text'), 'insert_status', ops.ann_insert.milvus_client(uri=self.uri, token=self.token, collection_name='testuser2'))
             .output()
         )
-        results=[]
+        
         for chunks, txt_id in chunks_data:
-            for idx, chunk in enumerate(chunks[:5]):
-                chunk_id = f"{txt_id}:{idx}"
-                res = DataCollection(p(chunk_id, chunk, chunk)).show()
-                results.append(res)
-        return results
+            for idx, chunk in enumerate(chunks[:10]):
+                
+                DataCollection(p(f"{txt_id}:{idx}",chunk, chunk, txt_id)).show()
+
+              
+        
             
     def answer(self,question):
        self.collection.load()
+       
        question = "question"
        ans_pipe = (
             pipe.input(question)
@@ -122,7 +127,9 @@ class Index:
                 .map('res', 'answer', lambda x: [x[0][0], x[0][3]])
                 .output('question', 'answer')
         )
-       return ans_pipe 
+       ans = ans_pipe(question)
+       ans = DataCollection(ans)
+       ans.show()
     
     def run():
         config = configparser.ConfigParser()
@@ -133,7 +140,7 @@ class Index:
         index = Index(uri, token)
 
         if index.connect():
-            try:
+            
                 collection = index.create_milvus_collection('testuser2', 768)
                 if not collection:
                     raise ValueError("Failed to create collection")
@@ -143,14 +150,13 @@ class Index:
                     raise ValueError("No valid data found in file")
             
                 index.insert_chuncs(chunks_data)
+
+                index.answer(str(input("введите часть статьи: ")))
                 
-                ans =index.answer(str(input("Введите часть статьи: ")))
-                ans1 = DataCollection(ans)
-                ans1.show() 
-            except Exception as e:
-                print(f"Error during execution: {e}")
-            finally:
-                    index.disconnect() 
+                
+                
+            
+            
             
 
 if __name__ == "__main__":
