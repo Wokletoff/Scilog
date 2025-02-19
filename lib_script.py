@@ -26,11 +26,6 @@ def process_line(line):
         print(f"Ошибка при обработке данных: {e}")
 
 
-def process(data):
-    # Ваша логика обработки
-    return data
-
-
 def stream_process_file(file_path, max_lines=50):
     line_count = 0
     result = []
@@ -62,7 +57,7 @@ def getcit(rez):
    return result
 
 citation_data = getcit(rez)
-
+print(citation_data)
 
 
 '''def getlines(citation_data,chunk_size = 78):
@@ -78,6 +73,7 @@ citation_data = getcit(rez)
 
 data = citation_data
 for el in citation_data:
+    print(">", citation_data)
     # Функция для извлечения количества страниц из 'physicalDescription'
     def extract_page_count(physical_description):
         match = re.search(r"(\d+)\s+pages?", physical_description)
@@ -136,7 +132,7 @@ for el in citation_data:
     #collection = create_milvus_collection('testuser2', 768)
 
     # Составляем ссылки в разных стилях
-    def generate_citation(style,contributors,title ,edition):
+    def generate_citation(style):
         authors = format_authors(contributors, style)
         authors_str = ", ".join(authors)
 
@@ -164,7 +160,7 @@ for el in citation_data:
         if style == "GOST":
             # Для ГОСТ: Фамилия И.О. Название: подзаголовочные данные. — Сведения об издании. — Место издания: Издательство, Год. — Объём. — (Серия). — ISBN.
             authors_gost = "; ".join([f"{a}" for a in authors])
-            citation = f"{authors_gost}={title}={edition_str} — {publication_place}: {publisher}, {publication_date}. — {pages_str} {series_str} {isbn_str}"
+            citation = f"{autors}{title}{edition_str} — {publication_place}: {publisher}, {publication_date}. — {pages_str} {series_str} {isbn_str}"
             citation = re.sub(" +", " ", citation).strip()
         else:
             citation = "Неизвестный стиль цитирования."
@@ -173,8 +169,8 @@ for el in citation_data:
     # Извлекаем данные для цитирования
     chunks =[]
     record = el
-    print(record)
     contributors = record.get("contributors", [])
+    autors = record.get("creator", "")
     title = record.get("title", "")
     edition = record.get("edition", "")
     publisher = record.get("publisher", "")
@@ -204,36 +200,30 @@ for el in citation_data:
 
     # Выводим цитаты в разных стилях
     styles = ["GOST"]
-    for style in range(10):
-            chunks.append(generate_citation(styles[0],contributors,title,edition))
-            txt_id = 1
-            #print(f"\nСтиль {style}:\n{generate_citation(style)}")
-            '''p = (
+    for style in styles: 
+        chunks.append(generate_citation(styles[0]))
+        
+    p = (
                 pipe.input('id', 'text' ,'question','answer')
                 .map('question', 'vec', ops.text_embedding.dpr(model_name='facebook/dpr-ctx_encoder-single-nq-base'))
                 .map('text','text',lambda x: x)
                 .map('vec', 'vec', lambda x: x / np.linalg.norm(x, axis=0))
-                .map(('id', 'vec', 'text'), 'insert_status', ops.ann_insert.milvus_client(uri=self.uri, token=self.token, collection_name='testuser2'))
+                .map(('id', 'vec', 'text'), 'insert_status', ops.ann_insert.milvus_client(host = "", port = "", collection_name='testuser2'))
                 .output()
-            )'''
-        
-    for chunk in chunks:
-        for chunk in enumerate(chunks[:10]):
-             pass#print(txt_id,chunk, chunk, txt_id)    
-            #DataCollection(p(f"{txt_id}:{idx}",chunk, chunk, txt_id)).show()
-    
-    #collection.load()
-ans_pipe = (
-    pipe.input('question')
+    )
+    DataCollection(p(chunks[0],chunk, chunk, chunks[0])).show()
+            
+collection.load()
+ans_pipe = (pipe.input('question')
         .map('question', 'vec', ops.text_embedding.dpr(model_name="facebook/dpr-ctx_encoder-single-nq-base"))
         .map('vec', 'vec', lambda x: x / np.linalg.norm(x, axis=0))
-        .map('vec', 'res', ops.ann_search.milvus_client(uri="", token="", collection_name='testuser2', limit=1, **{'output_fields': ['id', 'text']}))
+        .map('vec', 'res', ops.ann_search.milvus_client(host="", port = "", collection_name='testuser2', limit=1, **{'output_fields': ['id', 'text']}))
         .map('res', 'answer', lambda x: [x[0][0], x[0][3]])
         .output('question', 'answer')
 )
 
 
-ans = ans_pipe('nduty toward its neighbors, not perhaps to')
+ans = ans_pipe(input("введите статью:"))
 ans = DataCollection(ans)
 ans.show()
 
