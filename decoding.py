@@ -92,7 +92,11 @@ def getcit(rez):
 citation_data = getcit(rez)
 print(2)
 
-
+connections.connect(
+        alias = "default",
+        host = "192.168.0.27",
+        port = "19530"
+)
 
 print(3)
 
@@ -241,38 +245,26 @@ def create_milvus_collection(collection_name, dim):
 collection = create_milvus_collection('testuser2', 768) 
 collection.load()
 
-p = (
-                pipe.input('id', 'text' ,'question','answer')
-                .map('question', 'vec', ops.text_embedding.dpr(model_name='facebook/dpr-ctx_encoder-single-nq-base'))
-                .map('text','text',lambda x: x)
+
+def answer(question):
+        collection = create_milvus_collection('testuser2', 768) 
+        collection.load()
+       
+        question = "question"
+        ans_pipe = (
+            pipe.input(question)
+                .map('question', 'vec', ops.text_embedding.dpr(model_name="facebook/dpr-ctx_encoder-single-nq-base"))
                 .map('vec', 'vec', lambda x: x / np.linalg.norm(x, axis=0))
-                .map(('id', 'vec', 'text'), 'insert_status', ops.ann_insert.milvus_client(host ="192.168.0.27", port ="19530" , collection_name='testuser2'))
-                .output()
-    )
+                .map('vec', 'res', ops.ann_search.milvus_client(host="192.168.0.27", token= "19530", collection_name='testuser2', limit=1, **{'output_fields': ['id', 'text']}))
+                .map('res', 'answer', lambda x: [x[0][0], x[0][3]])
+                .output('question', 'answer')
+        )
+        ans = ans_pipe(question)
+        ans = DataCollection(ans)
+        ans.show()
+        return ",".join(ans[0]["answer"])
 
-DataCollection(p(chunks[0],chunks, chunks, chunks[0])).show()
-print(DataCollection)
-
-ans_pipe = (pipe.input('question')
-        .map('question', 'vec', ops.text_embedding.dpr(model_name="facebook/dpr-ctx_encoder-single-nq-base"))
-        .map('vec', 'vec', lambda x: x / np.linalg.norm(x, axis=0))
-        .map('vec', 'res', ops.ann_search.milvus_client(host="192.168.0.27", port = "19530", collection_name='testuser2', limit=1, **{'output_fields': ['id', 'text']}))
-        .map('res', 'answer', lambda x: [x[0][0], x[0][3]])
-        .output('question', 'answer')
-)
-print(6)
-
-ans = ans_pipe(input("введите статью:"))
-ans = DataCollection(ans)
-ans.show()
-        
-            
-               
-                
-                
-                
-            
-        
+         
 
 # Route to serve the HTML page
 @app.route("/")
@@ -286,15 +278,19 @@ def search():
     data = request.get_json()
     query = data.get("query", "")
 
-    connections.connect(
-        alias = "default",
-        host = "192.168.0.27",
-        port = "19530"
-    )
-        
     
+    
+    p = (
+                pipe.input('id', 'text' ,'question','answer')
+                .map('question', 'vec', ops.text_embedding.dpr(model_name='facebook/dpr-ctx_encoder-single-nq-base'))
+                .map('text','text',lambda x: x)
+                .map('vec', 'vec', lambda x: x / np.linalg.norm(x, axis=0))
+                .map(('id', 'vec', 'text'), 'insert_status', ops.ann_insert.milvus_client(host ="192.168.0.27", port ="19530" , collection_name='testuser2'))
+                .output()
+    )
 
-
+    DataCollection(p(chunks[0],chunks, chunks, chunks[0])).show()
+    response_message = answer(query)
     return jsonify({"message": response_message})
 
 
