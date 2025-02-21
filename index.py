@@ -113,6 +113,8 @@ class Index:
         except Exception as e:
             print(f"Error creating collection: {e}")
             return None
+    
+    
 
     def createcollection(self):
         chunks_data = []
@@ -144,7 +146,7 @@ class Index:
             .map('question', 'vec', ops.text_embedding.dpr(model_name='facebook/dpr-ctx_encoder-single-nq-base'))
             .map('text','text',lambda x: x)
             .map('vec', 'vec', lambda x: x / np.linalg.norm(x, axis=0))
-            .map(('id', 'vec', 'text'), 'insert_status', ops.ann_insert.milvus_client(uri=self.uri, token=self.token, collection_name='testuser2'))
+            .map(('id', 'vec', 'text'), 'insert_status', ops.ann_insert.milvus_client(host="192.168.0.27", port="19530", collection_name='testuser2'))
             .output()
         )
         
@@ -164,7 +166,7 @@ class Index:
             pipe.input(question)
                 .map('question', 'vec', ops.text_embedding.dpr(model_name="facebook/dpr-ctx_encoder-single-nq-base"))
                 .map('vec', 'vec', lambda x: x / np.linalg.norm(x, axis=0))
-                .map('vec', 'res', ops.ann_search.milvus_client(uri=self.uri, token= self.token, collection_name='testuser2', limit=1, **{'output_fields': ['id', 'text']}))
+                .map('vec', 'res', ops.ann_search.milvus_client(host="192.168.0.27", token= "19530", collection_name='testuser2', limit=1, **{'output_fields': ['id', 'text']}))
                 .map('res', 'answer', lambda x: [x[0][0], x[0][3]])
                 .output('question', 'answer')
         )
@@ -174,12 +176,6 @@ class Index:
        return ",".join(ans[0]["answer"])
 
         
-            
-               
-                
-                
-                
-            
         
 
 # Route to serve the HTML page
