@@ -1,3 +1,4 @@
+# Заготовка для сервера приложения
 from pymilvus import connections, FieldSchema, CollectionSchema, DataType, Collection, utility, MilvusClient
 from towhee import pipe, ops
 from base64 import b64decode
@@ -9,9 +10,48 @@ import base64
 import zlib
 import urllib
 import requests
+from flask import Flask, request, jsonify, render_template_string
 
+app = Flask(__name__)
 
+# HTML template for the web app
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Scilog citations application</title>
+</head>
+<body>
+    <h1>Scilog search article</h1>
+    <form id="searchForm" onsubmit="sendQuery(); return false;">
+        <input type="text" id="query" name="query" placeholder="Enter your search..." oninput="toggleButton()">
+        <button type="button" id="searchButton" onclick="sendQuery()" disabled>Search</button>
+    </form>
+    <div id="result" style="margin-top:20px;"></div>
+    <script>
+        function toggleButton() {
+            const query = document.getElementById('query').value;
+            const button = document.getElementById('searchButton');
+            button.disabled = query.length < 3;
+        }
 
+        async function sendQuery() {
+            const query = document.getElementById('query').value;
+            if (query.length < 3) return;
+            const response = await fetch('/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: query })
+            });
+            const data = await response.json();
+            document.getElementById('result').innerText = data.message;
+        }
+    </script>
+</body>
+</html>
+"""
 def process_line(line):
     try:
         data = json.loads(line)
@@ -179,6 +219,7 @@ for el in citation_data:
     styles = ["GOST"]
     for style in styles: 
         chunks.append(generate_citation(styles[0]))
+        
 
 def create_milvus_collection(collection_name, dim):
         if utility.has_collection(collection_name):
@@ -202,9 +243,24 @@ def create_milvus_collection(collection_name, dim):
         print(4)
         return collection
  
-collection = create_milvus_collection('testuser2', 768) 
-collection.load()
 
+def answer(question):       
+        question = "question"
+        ans_pipe = (
+            pipe.input(question)
+                .map('question', 'vec', ops.text_embedding.dpr(model_name="facebook/dpr-ctx_encoder-single-nq-base"))
+                .map('vec', 'vec', lambda x: x / np.linalg.norm(x, axis=0))
+                .map('vec', 'res', ops.ann_search.milvus_client(host="192.168.0.27", token= "19530", collection_name='testuser2', limit=1, **{'output_fields': ['id', 'text']}))
+                .map('res', 'answer', lambda x: [x[0][0], x[0][3]])
+                .output('question', 'answer')
+        )
+        ans = ans_pipe(question)
+        ans = DataCollection(ans)
+        ans.show()
+        return ",".join(ans[0]["answer"])
+
+collection = create_milvus_collection('testuser2', 768) 
+collection.load() 
 p = (
                 pipe.input('id', 'text' ,'question','answer')
                 .map('question', 'vec', ops.text_embedding.dpr(model_name='facebook/dpr-ctx_encoder-single-nq-base'))
@@ -214,18 +270,22 @@ p = (
                 .output()
     )
 
-DataCollection(p(chunks[0],chunks, chunks, chunks[0])).show()
-print(DataCollection)
+DataCollection(p(chunks[0],chunks, chunks, chunks[0])).show
 
-ans_pipe = (pipe.input('question')
-        .map('question', 'vec', ops.text_embedding.dpr(model_name="facebook/dpr-ctx_encoder-single-nq-base"))
-        .map('vec', 'vec', lambda x: x / np.linalg.norm(x, axis=0))
-        .map('vec', 'res', ops.ann_search.milvus_client(host="192.168.0.27", port = "19530", collection_name='testuser2', limit=1, **{'output_fields': ['id', 'text']}))
-        .map('res', 'answer', lambda x: [x[0][0], x[0][3]])
-        .output('question', 'answer')
-)
-print(6)
+# Route to serve the HTML page
+@app.route("/")
+def index():
+    return render_template_string(HTML_TEMPLATE)
 
-ans = ans_pipe(input("введите статью:"))
-ans = DataCollection(ans)
-ans.show()
+
+# API route to handle search requests
+@app.route("/search", methods=["POST"])
+def search():
+    data = request.get_json()
+    query = data.get("query", "")
+    response_message = answer(query)
+    return jsonify({"message": response_message})
+
+
+if __name__ == "__main__":
+   app.run(host='192.168.0.32', port=5000,  debug=True)
