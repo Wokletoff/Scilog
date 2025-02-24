@@ -6,6 +6,10 @@ import numpy as np
 from towhee.datacollection import DataCollection
 import configparser
 import requests
+import zstandard as zstd
+import io
+import json
+import re
 import base64
 import zlib
 import urllib
@@ -61,7 +65,7 @@ def process_line(line):
     except Exception as e:
         print(f"Ошибка при обработке данных: {e}")
 
-def stream_process_file(file_path, max_lines=4):
+def stream_process_file(file_path, max_lines=4, start_line=0):
     line_count = 0
     result = []
     with open(file_path, "rb") as compressed_file:
@@ -69,9 +73,10 @@ def stream_process_file(file_path, max_lines=4):
         with dctx.stream_reader(compressed_file) as reader:
             text_stream = io.TextIOWrapper(reader, encoding="utf-8")
             for line in text_stream:
+                if line < start_line: continue
                 result.append(process_line(line))
                 line_count += 1
-                if line_count >= max_lines:
+                if line_count >= max_lines+start_line:
                     return  result
                     break
 print(1)
